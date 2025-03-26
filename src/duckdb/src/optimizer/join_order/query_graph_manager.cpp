@@ -265,6 +265,7 @@ GenerateJoinRelation QueryGraphManager::GenerateJoins(vector<unique_ptr<LogicalO
 					break;
 				}
 			}
+
 			auto join = make_uniq<LogicalComparisonJoin>(chosen_filter->join_type);
 			// Here we optimize build side probe side. Our build side is the right side
 			// So the right plans should have lower cardinalities.
@@ -287,9 +288,8 @@ GenerateJoinRelation QueryGraphManager::GenerateJoins(vector<unique_ptr<LogicalO
 				bool invert = !JoinRelationSet::IsSubset(*left.set, *f->left_set);
 				// If the left and right set are inverted AND it is a semi or anti join
 				// swap left and right children back.
-
 				if (invert && (f->join_type == JoinType::SEMI || f->join_type == JoinType::ANTI)) {
-					std::swap(join->children[0], join->children[1]);
+					std::swap(left, right);
 					invert = false;
 				}
 

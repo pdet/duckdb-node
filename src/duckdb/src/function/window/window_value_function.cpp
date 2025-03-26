@@ -311,12 +311,7 @@ void WindowLeadLagExecutor::EvaluateInternal(WindowExecutorGlobalState &gstate, 
 				const auto n = NumericCast<idx_t>(val_idx);
 				const auto nth_index = glstate.value_tree->SelectNth(frames, n);
 				// (4) evaluate the expression provided to LEAD/LAG on this row.
-				if (nth_index.second) {
-					//	Overflow
-					FlatVector::SetNull(result, i, true);
-				} else {
-					cursor.CopyCell(0, nth_index.first, result, i);
-				}
+				cursor.CopyCell(0, nth_index, result, i);
 			} else if (wexpr.default_expr) {
 				leadlag_default.CopyCell(result, i);
 			} else {
@@ -430,8 +425,7 @@ void WindowFirstValueExecutor::EvaluateInternal(WindowExecutorGlobalState &gstat
 
 			if (frame_width) {
 				const auto first_idx = gvstate.value_tree->SelectNth(frames, 0);
-				D_ASSERT(first_idx.second == 0);
-				cursor.CopyCell(0, first_idx.first, result, i);
+				cursor.CopyCell(0, first_idx, result, i);
 			} else {
 				FlatVector::SetNull(result, i, true);
 			}
@@ -480,19 +474,8 @@ void WindowLastValueExecutor::EvaluateInternal(WindowExecutorGlobalState &gstate
 			}
 
 			if (frame_width) {
-				auto n = frame_width - 1;
-				auto last_idx = gvstate.value_tree->SelectNth(frames, n);
-				if (last_idx.second && last_idx.second <= n) {
-					//	Frame larger than data. Since we want last, we back off by the overflow
-					n -= last_idx.second;
-					last_idx = gvstate.value_tree->SelectNth(frames, n);
-				}
-				if (last_idx.second) {
-					//	No last value - give up.
-					FlatVector::SetNull(result, i, true);
-				} else {
-					cursor.CopyCell(0, last_idx.first, result, i);
-				}
+				const auto last_idx = gvstate.value_tree->SelectNth(frames, frame_width - 1);
+				cursor.CopyCell(0, last_idx, result, i);
 			} else {
 				FlatVector::SetNull(result, i, true);
 			}
@@ -558,12 +541,7 @@ void WindowNthValueExecutor::EvaluateInternal(WindowExecutorGlobalState &gstate,
 
 			if (n < frame_width) {
 				const auto nth_index = gvstate.value_tree->SelectNth(frames, n - 1);
-				if (nth_index.second) {
-					// Past end of frame
-					FlatVector::SetNull(result, i, true);
-				} else {
-					cursor.CopyCell(0, nth_index.first, result, i);
-				}
+				cursor.CopyCell(0, nth_index, result, i);
 			} else {
 				FlatVector::SetNull(result, i, true);
 			}

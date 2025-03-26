@@ -8,13 +8,17 @@
 
 #pragma once
 
+#include "duckdb/common/sort/sort.hpp"
 #include "duckdb/common/types/column/column_data_collection.hpp"
+#include "duckdb/common/types/row/row_layout.hpp"
 #include "core_functions/aggregate/quantile_helpers.hpp"
+#include "duckdb/execution/merge_sort_tree.hpp"
 #include "duckdb/common/operator/cast_operators.hpp"
 #include "duckdb/common/operator/multiply.hpp"
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
 #include "duckdb/function/window/window_index_tree.hpp"
 #include <algorithm>
+#include <numeric>
 #include <stdlib.h>
 #include <utility>
 
@@ -85,7 +89,7 @@ struct QuantileDirect {
 	using RESULT_TYPE = T;
 
 	inline const INPUT_TYPE &operator()(const INPUT_TYPE &x) const {
-		return x; // NOLINT
+		return x;
 	}
 };
 
@@ -361,7 +365,7 @@ struct QuantileSortTree {
 	}
 
 	inline idx_t SelectNth(const SubFrames &frames, size_t n) const {
-		return index_tree->SelectNth(frames, n).first;
+		return index_tree->SelectNth(frames, n);
 	}
 
 	template <typename INPUT_TYPE, typename RESULT_TYPE, bool DISCRETE>

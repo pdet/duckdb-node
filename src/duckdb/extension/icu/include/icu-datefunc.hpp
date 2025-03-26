@@ -49,9 +49,7 @@ struct ICUDateFunc {
 	static duckdb::unique_ptr<FunctionData> Bind(ClientContext &context, ScalarFunction &bound_function,
 	                                             vector<duckdb::unique_ptr<Expression>> &arguments);
 
-	//! Tries to set the time zone for the calendar and returns false if it is not valid.
-	static bool TrySetTimeZone(icu::Calendar *calendar, const string_t &tz_id);
-	//! Sets the time zone for the calendar. Throws if it is not valid
+	//! Sets the time zone for the calendar.
 	static void SetTimeZone(icu::Calendar *calendar, const string_t &tz_id);
 	//! Gets the timestamp from the calendar, throwing if it is not in range.
 	static bool TryGetTime(icu::Calendar *calendar, uint64_t micros, timestamp_t &result);

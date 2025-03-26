@@ -40,7 +40,7 @@ public:
 	vector<LogicalType> child_types;
 	//! The target LogicalType of the subquery result (i.e. to which type it should be casted, if child_type <>
 	//! child_target). Only used for ANY expressions.
-	vector<LogicalType> child_targets;
+	LogicalType child_target;
 
 public:
 	bool HasSubquery() const override {

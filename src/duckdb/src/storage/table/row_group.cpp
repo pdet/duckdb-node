@@ -385,9 +385,8 @@ void RowGroup::CommitDrop() {
 	}
 }
 
-void RowGroup::CommitDropColumn(const idx_t column_index) {
-	auto &column = GetColumn(column_index);
-	column.CommitDropColumn();
+void RowGroup::CommitDropColumn(idx_t column_idx) {
+	GetColumn(column_idx).CommitDropColumn();
 }
 
 void RowGroup::NextVector(CollectionScanState &state) {
@@ -431,12 +430,13 @@ bool RowGroup::CheckZonemap(ScanFilterInfo &filters) {
 		if (prune_result == FilterPropagateResult::FILTER_ALWAYS_FALSE) {
 			return false;
 		}
-		if (filter.filter_type == TableFilterType::OPTIONAL_FILTER) {
-			// these are only for row group checking, set as always true so we don't check it
-			filters.SetFilterAlwaysTrue(i);
-		} else if (prune_result == FilterPropagateResult::FILTER_ALWAYS_TRUE) {
+		if (prune_result == FilterPropagateResult::FILTER_ALWAYS_TRUE) {
 			// filter is always true - no need to check it
 			// label the filter as always true so we don't need to check it anymore
+			filters.SetFilterAlwaysTrue(i);
+		}
+		if (filter.filter_type == TableFilterType::OPTIONAL_FILTER) {
+			// these are only for row group checking, set as always true so we don't check it
 			filters.SetFilterAlwaysTrue(i);
 		}
 	}
@@ -606,7 +606,6 @@ void RowGroup::TemplatedScan(TransactionData transaction, CollectionScanState &s
 						// this filter is always true - skip it
 						continue;
 					}
-					auto &table_filter_state = *filter.filter_state;
 
 					const auto scan_idx = filter.scan_column_index;
 					const auto column_idx = filter.table_column_index;
@@ -620,7 +619,7 @@ void RowGroup::TemplatedScan(TransactionData transaction, CollectionScanState &s
 						if (prune_result == FilterPropagateResult::FILTER_ALWAYS_FALSE) {
 							// We can just break out of the loop here.
 							approved_tuple_count = 0;
-							continue;
+							break;
 						}
 
 						// Generate row ids
@@ -641,13 +640,13 @@ void RowGroup::TemplatedScan(TransactionData transaction, CollectionScanState &s
 						// Now apply the filter
 						UnifiedVectorFormat vdata;
 						result_vector.ToUnifiedFormat(approved_tuple_count, vdata);
-						ColumnSegment::FilterSelection(sel, result_vector, vdata, filter.filter, table_filter_state,
-						                               approved_tuple_count, approved_tuple_count);
+						ColumnSegment::FilterSelection(sel, result_vector, vdata, filter.filter, approved_tuple_count,
+						                               approved_tuple_count);
 
 					} else {
 						auto &col_data = GetColumn(filter.table_column_index);
 						col_data.Filter(transaction, state.vector_index, state.column_scans[scan_idx], result_vector,
-						                sel, approved_tuple_count, filter.filter, table_filter_state);
+						                sel, approved_tuple_count, filter.filter);
 					}
 				}
 				for (auto &table_filter : filter_list) {

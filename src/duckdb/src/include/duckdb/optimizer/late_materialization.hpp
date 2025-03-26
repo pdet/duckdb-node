@@ -14,7 +14,6 @@
 namespace duckdb {
 class LogicalOperator;
 class LogicalGet;
-class LogicalLimit;
 class Optimizer;
 
 //! Transform
@@ -35,14 +34,12 @@ private:
 	void ReplaceTableReferences(Expression &expr, idx_t new_table_index);
 	unique_ptr<Expression> GetExpression(LogicalOperator &op, idx_t column_index);
 	void ReplaceExpressionReferences(LogicalOperator &next_op, unique_ptr<Expression> &expr);
-	bool OptimizeLargeLimit(LogicalLimit &limit, idx_t limit_val, bool has_offset);
+	bool OptimizeLargeLimit(LogicalOperator &child);
 
 private:
 	Optimizer &optimizer;
 	//! The max row count for which we will consider late materialization
 	idx_t max_row_count;
-	//! The type of the row id column
-	LogicalType row_id_type;
 };
 
 } // namespace duckdb

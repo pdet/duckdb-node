@@ -48,21 +48,20 @@ public:
 	DUCKDB_API void Set(vector<CatalogSearchEntry> new_paths, CatalogSetPathType set_type);
 	DUCKDB_API void Reset();
 
-	DUCKDB_API const vector<CatalogSearchEntry> &Get() const;
-	const vector<CatalogSearchEntry> &GetSetPaths() const {
+	DUCKDB_API const vector<CatalogSearchEntry> &Get();
+	const vector<CatalogSearchEntry> &GetSetPaths() {
 		return set_paths;
 	}
-	DUCKDB_API const CatalogSearchEntry &GetDefault() const;
+	DUCKDB_API const CatalogSearchEntry &GetDefault();
 	//! FIXME: this method is deprecated
-	DUCKDB_API string GetDefaultSchema(const string &catalog) const;
-	DUCKDB_API string GetDefaultSchema(ClientContext &context, const string &catalog) const;
-	DUCKDB_API string GetDefaultCatalog(const string &schema) const;
+	DUCKDB_API string GetDefaultSchema(const string &catalog);
+	DUCKDB_API string GetDefaultSchema(ClientContext &context, const string &catalog);
+	DUCKDB_API string GetDefaultCatalog(const string &schema);
 
-	DUCKDB_API vector<string> GetSchemasForCatalog(const string &catalog) const;
-	DUCKDB_API vector<string> GetCatalogsForSchema(const string &schema) const;
+	DUCKDB_API vector<string> GetSchemasForCatalog(const string &catalog);
+	DUCKDB_API vector<string> GetCatalogsForSchema(const string &schema);
 
-	DUCKDB_API bool SchemaInSearchPath(ClientContext &context, const string &catalog_name,
-	                                   const string &schema_name) const;
+	DUCKDB_API bool SchemaInSearchPath(ClientContext &context, const string &catalog_name, const string &schema_name);
 
 private:
 	//! Set paths without checking if they exist

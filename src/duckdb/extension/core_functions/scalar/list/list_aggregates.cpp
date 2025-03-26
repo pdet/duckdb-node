@@ -15,17 +15,7 @@
 
 namespace duckdb {
 
-struct ListAggregatesLocalState : public FunctionLocalState {
-	explicit ListAggregatesLocalState(Allocator &allocator) : arena_allocator(allocator) {
-	}
-
-	ArenaAllocator arena_allocator;
-};
-
-unique_ptr<FunctionLocalState> ListAggregatesInitLocalState(ExpressionState &state, const BoundFunctionExpression &expr,
-                                                            FunctionData *bind_data) {
-	return make_uniq<ListAggregatesLocalState>(BufferAllocator::Get(state.GetContext()));
-}
+// FIXME: use a local state for each thread to increase performance?
 // FIXME: benchmark the use of simple_update against using update (if applicable)
 
 static unique_ptr<FunctionData> ListAggregatesBindFailure(ScalarFunction &bound_function) {
@@ -217,8 +207,7 @@ static void ListAggregatesFunction(DataChunk &args, ExpressionState &state, Vect
 	auto &func_expr = state.expr.Cast<BoundFunctionExpression>();
 	auto &info = func_expr.bind_info->Cast<ListAggregatesBindData>();
 	auto &aggr = info.aggr_expr->Cast<BoundAggregateExpression>();
-	auto &allocator = ExecuteFunctionState::GetFunctionState(state)->Cast<ListAggregatesLocalState>().arena_allocator;
-	allocator.Reset();
+	ArenaAllocator allocator(Allocator::DefaultAllocator());
 	AggregateInputData aggr_input_data(aggr.bind_info.get(), allocator);
 
 	D_ASSERT(aggr.function.update);
@@ -522,9 +511,8 @@ static unique_ptr<FunctionData> ListUniqueBind(ClientContext &context, ScalarFun
 }
 
 ScalarFunction ListAggregateFun::GetFunction() {
-	auto result =
-	    ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::VARCHAR}, LogicalType::ANY,
-	                   ListAggregateFunction, ListAggregateBind, nullptr, nullptr, ListAggregatesInitLocalState);
+	auto result = ScalarFunction({LogicalType::LIST(LogicalType::ANY), LogicalType::VARCHAR}, LogicalType::ANY,
+	                             ListAggregateFunction, ListAggregateBind);
 	BaseScalarFunction::SetReturnsError(result);
 	result.null_handling = FunctionNullHandling::SPECIAL_HANDLING;
 	result.varargs = LogicalType::ANY;
@@ -535,12 +523,12 @@ ScalarFunction ListAggregateFun::GetFunction() {
 
 ScalarFunction ListDistinctFun::GetFunction() {
 	return ScalarFunction({LogicalType::LIST(LogicalType::ANY)}, LogicalType::LIST(LogicalType::ANY),
-	                      ListDistinctFunction, ListDistinctBind, nullptr, nullptr, ListAggregatesInitLocalState);
+	                      ListDistinctFunction, ListDistinctBind);
 }
 
 ScalarFunction ListUniqueFun::GetFunction() {
 	return ScalarFunction({LogicalType::LIST(LogicalType::ANY)}, LogicalType::UBIGINT, ListUniqueFunction,
-	                      ListUniqueBind, nullptr, nullptr, ListAggregatesInitLocalState);
+	                      ListUniqueBind);
 }
 
 } // namespace duckdb

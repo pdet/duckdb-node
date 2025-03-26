@@ -1,5 +1,6 @@
 #include "duckdb/function/window/window_index_tree.hpp"
 
+#include <thread>
 #include <utility>
 
 namespace duckdb {
@@ -51,21 +52,11 @@ void WindowIndexTreeLocalState::BuildLeaves() {
 	}
 }
 
-pair<idx_t, idx_t> WindowIndexTree::SelectNth(const SubFrames &frames, idx_t n) const {
+idx_t WindowIndexTree::SelectNth(const SubFrames &frames, idx_t n) const {
 	if (mst32) {
-		const auto nth = mst32->SelectNth(frames, n);
-		if (nth.second) {
-			return nth;
-		} else {
-			return {mst32->NthElement(nth.first), 0};
-		}
+		return mst32->NthElement(mst32->SelectNth(frames, n));
 	} else {
-		const auto nth = mst64->SelectNth(frames, n);
-		if (nth.second) {
-			return nth;
-		} else {
-			return {mst64->NthElement(nth.first), 0};
-		}
+		return mst64->NthElement(mst64->SelectNth(frames, n));
 	}
 }
 

@@ -44,7 +44,14 @@ struct StringAggFunction {
 		if (!state.dataptr) {
 			finalize_data.ReturnNull();
 		} else {
-			target = string_t(state.dataptr, state.size);
+			target = StringVector::AddString(finalize_data.result, state.dataptr, state.size);
+		}
+	}
+
+	template <class STATE>
+	static void Destroy(STATE &state, AggregateInputData &aggr_input_data) {
+		if (state.dataptr) {
+			delete[] state.dataptr;
 		}
 	}
 
@@ -52,12 +59,12 @@ struct StringAggFunction {
 		return true;
 	}
 
-	static inline void PerformOperation(StringAggState &state, ArenaAllocator &allocator, const char *str,
-	                                    const char *sep, idx_t str_size, idx_t sep_size) {
+	static inline void PerformOperation(StringAggState &state, const char *str, const char *sep, idx_t str_size,
+	                                    idx_t sep_size) {
 		if (!state.dataptr) {
 			// first iteration: allocate space for the string and copy it into the state
 			state.alloc_size = MaxValue<idx_t>(8, NextPowerOfTwo(str_size));
-			state.dataptr = char_ptr_cast(allocator.Allocate(state.alloc_size));
+			state.dataptr = new char[state.alloc_size];
 			state.size = str_size;
 			memcpy(state.dataptr, str, str_size);
 		} else {
@@ -65,12 +72,13 @@ struct StringAggFunction {
 			idx_t required_size = state.size + str_size + sep_size;
 			if (required_size > state.alloc_size) {
 				// no space! allocate extra space
-				const auto old_size = state.alloc_size;
 				while (state.alloc_size < required_size) {
 					state.alloc_size *= 2;
 				}
-				state.dataptr =
-				    char_ptr_cast(allocator.Reallocate(data_ptr_cast(state.dataptr), old_size, state.alloc_size));
+				auto new_data = new char[state.alloc_size];
+				memcpy(new_data, state.dataptr, state.size);
+				delete[] state.dataptr;
+				state.dataptr = new_data;
 			}
 			// copy the separator
 			memcpy(state.dataptr + state.size, sep, sep_size);
@@ -81,15 +89,14 @@ struct StringAggFunction {
 		}
 	}
 
-	static inline void PerformOperation(StringAggState &state, ArenaAllocator &allocator, string_t str,
-	                                    optional_ptr<FunctionData> data_p) {
+	static inline void PerformOperation(StringAggState &state, string_t str, optional_ptr<FunctionData> data_p) {
 		auto &data = data_p->Cast<StringAggBindData>();
-		PerformOperation(state, allocator, str.GetData(), data.sep.c_str(), str.GetSize(), data.sep.size());
+		PerformOperation(state, str.GetData(), data.sep.c_str(), str.GetSize(), data.sep.size());
 	}
 
 	template <class INPUT_TYPE, class STATE, class OP>
 	static void Operation(STATE &state, const INPUT_TYPE &input, AggregateUnaryInput &unary_input) {
-		PerformOperation(state, unary_input.input.allocator, input, unary_input.input.bind_data);
+		PerformOperation(state, input, unary_input.input.bind_data);
 	}
 
 	template <class INPUT_TYPE, class STATE, class OP>
@@ -106,8 +113,8 @@ struct StringAggFunction {
 			// source is not set: skip combining
 			return;
 		}
-		PerformOperation(target, aggr_input_data.allocator,
-		                 string_t(source.dataptr, UnsafeNumericCast<uint32_t>(source.size)), aggr_input_data.bind_data);
+		PerformOperation(target, string_t(source.dataptr, UnsafeNumericCast<uint32_t>(source.size)),
+		                 aggr_input_data.bind_data);
 	}
 };
 
@@ -155,7 +162,8 @@ AggregateFunctionSet StringAggFun::GetFunctions() {
 	    AggregateFunction::UnaryScatterUpdate<StringAggState, string_t, StringAggFunction>,
 	    AggregateFunction::StateCombine<StringAggState, StringAggFunction>,
 	    AggregateFunction::StateFinalize<StringAggState, string_t, StringAggFunction>,
-	    AggregateFunction::UnaryUpdate<StringAggState, string_t, StringAggFunction>, StringAggBind);
+	    AggregateFunction::UnaryUpdate<StringAggState, string_t, StringAggFunction>, StringAggBind,
+	    AggregateFunction::StateDestroy<StringAggState, StringAggFunction>);
 	string_agg_param.serialize = StringAggSerialize;
 	string_agg_param.deserialize = StringAggDeserialize;
 	string_agg.AddFunction(string_agg_param);

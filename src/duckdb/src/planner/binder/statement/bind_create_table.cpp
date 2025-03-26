@@ -271,14 +271,13 @@ void Binder::BindDefaultValues(const ColumnList &columns, vector<unique_ptr<Expr
 		schema_name = DEFAULT_SCHEMA;
 	}
 
+	// FIXME: We might want to save the existing search path of the binder
 	vector<CatalogSearchEntry> defaults_search_path;
 	defaults_search_path.emplace_back(catalog_name, schema_name);
 	if (schema_name != DEFAULT_SCHEMA) {
 		defaults_search_path.emplace_back(catalog_name, DEFAULT_SCHEMA);
 	}
-
-	auto default_binder = Binder::CreateBinder(context, *this);
-	default_binder->entry_retriever.SetSearchPath(std::move(defaults_search_path));
+	entry_retriever.SetSearchPath(std::move(defaults_search_path));
 
 	for (auto &column : columns.Physical()) {
 		unique_ptr<Expression> bound_default;
@@ -289,9 +288,9 @@ void Binder::BindDefaultValues(const ColumnList &columns, vector<unique_ptr<Expr
 			if (default_copy->HasParameter()) {
 				throw BinderException("DEFAULT values cannot contain parameters");
 			}
-			ConstantBinder default_value_binder(*default_binder, context, "DEFAULT value");
-			default_value_binder.target_type = column.Type();
-			bound_default = default_value_binder.Bind(default_copy);
+			ConstantBinder default_binder(*this, context, "DEFAULT value");
+			default_binder.target_type = column.Type();
+			bound_default = default_binder.Bind(default_copy);
 		} else {
 			// no default value specified: push a default value of constant null
 			bound_default = make_uniq<BoundConstantExpression>(Value(column.Type()));
@@ -520,8 +519,8 @@ static void BindCreateTableConstraints(CreateTableInfo &create_info, CatalogEntr
 		}
 
 		// Resolve the table reference.
-		EntryLookupInfo table_lookup(CatalogType::TABLE_ENTRY, fk.info.table);
-		auto table_entry = entry_retriever.GetEntry(INVALID_CATALOG, fk.info.schema, table_lookup);
+		auto table_entry =
+		    entry_retriever.GetEntry(CatalogType::TABLE_ENTRY, INVALID_CATALOG, fk.info.schema, fk.info.table);
 		if (table_entry->type == CatalogType::VIEW_ENTRY) {
 			throw BinderException("cannot reference a VIEW with a FOREIGN KEY");
 		}

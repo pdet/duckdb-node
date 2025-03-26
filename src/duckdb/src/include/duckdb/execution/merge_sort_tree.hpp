@@ -118,8 +118,7 @@ struct MergeSortTree {
 
 	void Build();
 
-	//	{nth index, remainder}
-	pair<idx_t, idx_t> SelectNth(const SubFrames &frames, idx_t n) const;
+	idx_t SelectNth(const SubFrames &frames, idx_t n) const;
 
 	inline ElementType NthElement(idx_t i) const {
 		return tree.front().first[i];
@@ -437,10 +436,10 @@ void MergeSortTree<E, O, CMP, F, C>::BuildRun(idx_t level_idx, idx_t run_idx) {
 }
 
 template <typename E, typename O, typename CMP, uint64_t F, uint64_t C>
-pair<idx_t, idx_t> MergeSortTree<E, O, CMP, F, C>::SelectNth(const SubFrames &frames, idx_t n) const {
+idx_t MergeSortTree<E, O, CMP, F, C>::SelectNth(const SubFrames &frames, idx_t n) const {
 	// Handle special case of a one-element tree
 	if (tree.size() < 2) {
-		return {0, 0};
+		return 0;
 	}
 
 	// 	The first level contains a single run,
@@ -567,7 +566,7 @@ pair<idx_t, idx_t> MergeSortTree<E, O, CMP, F, C>::SelectNth(const SubFrames &fr
 		}
 	}
 
-	return {result, n};
+	return result;
 }
 
 template <typename E, typename O, typename CMP, uint64_t F, uint64_t C>

@@ -34,7 +34,6 @@ PhysicalCreateARTIndex::PhysicalCreateARTIndex(LogicalOperator &op, TableCatalog
 
 class CreateARTIndexGlobalSinkState : public GlobalSinkState {
 public:
-	//! We merge the local indexes into one global index.
 	unique_ptr<BoundIndex> global_index;
 };
 
@@ -54,10 +53,8 @@ public:
 };
 
 unique_ptr<GlobalSinkState> PhysicalCreateARTIndex::GetGlobalSinkState(ClientContext &context) const {
-	// Create the global sink state.
+	// Create the global sink state and add the global index.
 	auto state = make_uniq<CreateARTIndexGlobalSinkState>();
-
-	// Create the global index.
 	auto &storage = table.GetStorage();
 	state->global_index = make_uniq<ART>(info->index_name, info->constraint_type, storage_ids,
 	                                     TableIOManager::Get(storage), unbound_expressions, storage.db);
@@ -126,6 +123,7 @@ SinkResultType PhysicalCreateARTIndex::SinkSorted(OperatorSinkInput &input) cons
 
 SinkResultType PhysicalCreateARTIndex::Sink(ExecutionContext &context, DataChunk &chunk,
                                             OperatorSinkInput &input) const {
+
 	D_ASSERT(chunk.ColumnCount() >= 2);
 	auto &l_state = input.local_state.Cast<CreateARTIndexLocalSinkState>();
 	l_state.arena_allocator.Reset();
@@ -142,8 +140,8 @@ SinkResultType PhysicalCreateARTIndex::Sink(ExecutionContext &context, DataChunk
 		}
 	}
 
-	l_state.local_index->Cast<ART>().GenerateKeyVectors(
-	    l_state.arena_allocator, l_state.key_chunk, chunk.data[chunk.ColumnCount() - 1], l_state.keys, l_state.row_ids);
+	ART::GenerateKeyVectors(l_state.arena_allocator, l_state.key_chunk, chunk.data[chunk.ColumnCount() - 1],
+	                        l_state.keys, l_state.row_ids);
 
 	if (sorted) {
 		return SinkSorted(input);
@@ -153,10 +151,11 @@ SinkResultType PhysicalCreateARTIndex::Sink(ExecutionContext &context, DataChunk
 
 SinkCombineResultType PhysicalCreateARTIndex::Combine(ExecutionContext &context,
                                                       OperatorSinkCombineInput &input) const {
+
 	auto &g_state = input.global_state.Cast<CreateARTIndexGlobalSinkState>();
+	auto &l_state = input.local_state.Cast<CreateARTIndexLocalSinkState>();
 
 	// Merge the local index into the global index.
-	auto &l_state = input.local_state.Cast<CreateARTIndexLocalSinkState>();
 	if (!g_state.global_index->MergeIndexes(*l_state.local_index)) {
 		throw ConstraintException("Data contains duplicates on indexed column(s)");
 	}
@@ -166,6 +165,8 @@ SinkCombineResultType PhysicalCreateARTIndex::Combine(ExecutionContext &context,
 
 SinkFinalizeType PhysicalCreateARTIndex::Finalize(Pipeline &pipeline, Event &event, ClientContext &context,
                                                   OperatorSinkFinalizeInput &input) const {
+
+	// Here, we set the resulting global index as the newly created index of the table.
 	auto &state = input.global_state.Cast<CreateARTIndexGlobalSinkState>();
 
 	// Vacuum excess memory and verify.
@@ -181,6 +182,7 @@ SinkFinalizeType PhysicalCreateARTIndex::Finalize(Pipeline &pipeline, Event &eve
 	auto &schema = table.schema;
 	info->column_ids = storage_ids;
 
+	// FIXME: We should check for catalog exceptions prior to index creation, and later double-check.
 	if (!alter_table_info) {
 		// Ensure that the index does not yet exist in the catalog.
 		auto entry = schema.GetEntry(schema.GetCatalogTransaction(context), CatalogType::INDEX_ENTRY, info->index_name);

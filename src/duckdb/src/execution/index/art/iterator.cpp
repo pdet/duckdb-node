@@ -46,11 +46,9 @@ bool Iterator::Scan(const ARTKey &upper_bound, const idx_t max_count, unsafe_vec
 	bool has_next;
 	do {
 		// An empty upper bound indicates that no upper bound exists.
-		if (!upper_bound.Empty()) {
-			if (status == GateStatus::GATE_NOT_SET || entered_nested_leaf) {
-				if (current_key.GreaterThan(upper_bound, equal, nested_depth)) {
-					return true;
-				}
+		if (!upper_bound.Empty() && status == GateStatus::GATE_NOT_SET) {
+			if (current_key.GreaterThan(upper_bound, equal, nested_depth)) {
+				return true;
 			}
 		}
 
@@ -88,7 +86,6 @@ bool Iterator::Scan(const ARTKey &upper_bound, const idx_t max_count, unsafe_vec
 			throw InternalException("Invalid leaf type for index scan.");
 		}
 
-		entered_nested_leaf = false;
 		has_next = Next();
 	} while (has_next);
 	return true;
@@ -107,7 +104,6 @@ void Iterator::FindMinimum(const Node &node) {
 	if (node.GetGateStatus() == GateStatus::GATE_SET) {
 		D_ASSERT(status == GateStatus::GATE_NOT_SET);
 		status = GateStatus::GATE_SET;
-		entered_nested_leaf = true;
 		nested_depth = 0;
 	}
 

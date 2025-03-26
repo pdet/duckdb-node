@@ -80,10 +80,6 @@ public:
 	}
 	virtual void WriteProfilingInformation(std::ostream &ss) {
 	}
-	virtual void OnTaskStart(ClientContext &context) {
-	}
-	virtual void OnTaskStop(ClientContext &context) {
-	}
 
 public:
 	template <class TARGET>
